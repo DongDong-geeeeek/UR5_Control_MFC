@@ -36,7 +36,6 @@ public:
 	CString m_strRobortIpAdress;
 	// 绑定到界面端口输入框的变量
 	UINT m_iRobortPort;
-	SOCKET m_digSocket;
 	afx_msg void OnBnClickedButconnect();
 	afx_msg void OnBnClickedButtdisconect();
 	afx_msg void OnClose();

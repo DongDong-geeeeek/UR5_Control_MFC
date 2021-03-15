@@ -55,7 +55,7 @@ END_MESSAGE_MAP()
 
 CCtrlURobotDlg::CCtrlURobotDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_CTRLUROBOT_DIALOG, pParent)
-	, m_strRobortIpAdress(_T("192.168.1.104"))	/*初始化列表*/
+	, m_strRobortIpAdress(_T("192.168.1.114"))	/*初始化列表*/
 	, m_iRobortPort(30001)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
@@ -165,48 +165,109 @@ HCURSOR CCtrlURobotDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-/******************************回调函数*************************************/
+/******************************回调函数*****************************/
 
 void CCtrlURobotDlg::OnBnClickedButconnect()
 {
-	// TODO: 在此添加控件通知处理程序代码
-	UpdateData(TRUE);
-	SOCKADDR_IN addrSer;
-	if (m_digClient.m_flag == FALSE)
+	UpdateData(TRUE);	
+	/**************************************************************/
+	if (m_digClient.m_flag == FALSE)//套接字不存在
 	{
-		m_digClient.CreatSocket();
-
-		// 获取到界面上用户输入的IP地址和端口
-		char strRobotIp[1024];
-		WideCharToMultiByte(CP_OEMCP, 0, m_strRobortIpAdress, -1, strRobotIp, 1024, NULL, NULL);
-		int iRobotPort = m_iRobortPort;
-		addrSer.sin_family = AF_INET;						//  将协议信息存进addrSer结构体
-		addrSer.sin_port = htons(iRobotPort);				//  将端口信息存进addrSer结构体
-		inet_pton(AF_INET, strRobotIp, &addrSer.sin_addr);	//  将IP地址存进addrSer结构体
-
-		m_digClient.SetRobortAddress(&addrSer);
-		if (TRUE == m_digClient.ConnectToRobort())				
+		// 创建套接字
+		if (TRUE == m_digClient.CreatSocket()) // 创建成功
 		{
+			m_digClient.m_flag = TRUE;
+			// 尝试连接
+			SOCKADDR_IN addrSer;
+			char strRobotIp[1024];
+			WideCharToMultiByte(CP_OEMCP, 0, m_strRobortIpAdress, -1, strRobotIp, 1024, NULL, NULL);
+			int iRobotPort = m_iRobortPort;
+			addrSer.sin_family = AF_INET;						//  将协议信息存进addrSer结构体
+			addrSer.sin_port = htons(iRobotPort);				//  将端口信息存进addrSer结构体
+			inet_pton(AF_INET, strRobotIp, &addrSer.sin_addr);	//  将IP地址存进addrSer结构体
+			m_digClient.SetRobortAddress(&addrSer);
+
+			if (TRUE == m_digClient.ConnectToRobort()) 
+			{
+				/*设置连接成功标识符!!!!!!!!!!*/
+				m_digClient.m_conSucc = TRUE;
+
+				CString tipMsg;
+				tipMsg.Format(_T("已连接到机械臂!"));
+				AfxMessageBox(tipMsg);
+
+				// 设置ip\port 控件失效
+				CWnd *cEditIp = GetDlgItem(IDC_EDITIPADDR);
+				CWnd *cEditPort = GetDlgItem(IDC_EDITPORT);
+				cEditIp->EnableWindow(FALSE);
+				cEditPort->EnableWindow(FALSE);
+				return;
+			} 
+			else // 连接失败,提示并返回
+			{
+				CString tipMsg;
+				tipMsg.Format(_T("连接机械臂失败!错误代码为%d"), WSAGetLastError());
+				AfxMessageBox(tipMsg);
+				return;
+			}
+		} 
+		else  // 创建失败,提示并返回
+		{ 
 			CString tipMsg;
-			tipMsg.Format(_T("已连接到机械臂!"));
+			tipMsg.Format(_T("创建套接字失败,错误代码为%d"), WSAGetLastError());
 			AfxMessageBox(tipMsg);
+			return;
 		}
-
-		// 设置ip\port 控件失效
-		CWnd *cEditIp = GetDlgItem(IDC_EDITIPADDR);
-		CWnd *cEditPort = GetDlgItem(IDC_EDITPORT);
-		cEditIp->EnableWindow(FALSE);
-		cEditPort->EnableWindow(FALSE);
-	}
-	else
+	} 
+	else//套接字存在
 	{
-		CString tipMsg;
-		tipMsg.Format(_T("您已经连接到机械臂,请勿重复连接!"));
-		AfxMessageBox(tipMsg);
+		// 套接字是否已经连接
+		if (m_digClient.m_conSucc == FALSE) // 没有连接
+		{
+			// 尝试连接
+			SOCKADDR_IN addrSer;
+			char strRobotIp[1024];
+			WideCharToMultiByte(CP_OEMCP, 0, m_strRobortIpAdress, -1, strRobotIp, 1024, NULL, NULL);
+			int iRobotPort = m_iRobortPort;
+			addrSer.sin_family = AF_INET;						
+			addrSer.sin_port = htons(iRobotPort);				
+			inet_pton(AF_INET, strRobotIp, &addrSer.sin_addr);	
+			m_digClient.SetRobortAddress(&addrSer);
+
+			if (TRUE == m_digClient.ConnectToRobort()) // 连接成功
+			{ 
+				/*设置连接成功标识符!!!!!!!!!!*/
+				m_digClient.m_conSucc = TRUE;
+
+				CString tipMsg;
+				tipMsg.Format(_T("已连接到机械臂!"));
+				AfxMessageBox(tipMsg);
+
+				// 设置ip\port 控件失效
+				CWnd *cEditIp = GetDlgItem(IDC_EDITIPADDR);
+				CWnd *cEditPort = GetDlgItem(IDC_EDITPORT);
+				cEditIp->EnableWindow(FALSE);
+				cEditPort->EnableWindow(FALSE);
+				return;
+			} 
+			else  // 连接失败
+			{
+				CString tipMsg;
+				tipMsg.Format(_T("连接到机械臂失败,错误代码为 %d"), WSAGetLastError());
+				AfxMessageBox(tipMsg);
+				return;
+			}
+		} 
+		else // 已经连接
+		{
+			// 提示不要重复连接,返回
+			CString tipMsg;
+			tipMsg.Format(_T("您已经连接到机械臂,请勿重复连接!"));
+			AfxMessageBox(tipMsg);
+			return;
+		}
 	}
-	
-
-
+	/**************************************************************/
 	// 调用线程函数接受数据
 }
 
@@ -215,6 +276,7 @@ void CCtrlURobotDlg::OnBnClickedButtdisconect()
 	// TODO: 在此添加控件通知处理程序代码
 	closesocket(m_digClient.m_socket);
 	m_digClient.m_flag = FALSE;
+	m_digClient.m_conSucc = FALSE;
 
 	CWnd *cEditIp = GetDlgItem(IDC_EDITIPADDR);
 	CWnd *cEditPort = GetDlgItem(IDC_EDITPORT);
@@ -225,7 +287,8 @@ void CCtrlURobotDlg::OnBnClickedButtdisconect()
 void CCtrlURobotDlg::OnClose()
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
-	
+
+	closesocket(m_digClient.m_socket);
 	WSACleanup();
 	CDialogEx::OnClose();
 }

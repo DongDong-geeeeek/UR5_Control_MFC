@@ -1,26 +1,32 @@
 #include "pch.h"
 #include "Client.h"
 
-
+/*
+ *	1.Client类中不出现提示语句,把提示语句放在对话框
+ *	2.Client类抽象的目的是尽量让其内部方法只返回BOOL量
+ *	3.Client类内部有一个Socket对象
+ *  4.为了防止重复的赋值标识符,所以Client内部不改变标识符,放在外边进行修改
+ *	5.确保Client类的方法的参数都很简单,方便调用
+ */
 Client::Client()
 {
 	m_flag = FALSE;
+	m_conSucc = FALSE;
 }
 
 BOOL Client::CreatSocket(int af, int type, int protocol)
 {
 	m_socket = socket(af, type, protocol);
-
 	if (INVALID_SOCKET == m_socket)
 	{
-		tipMsg.Format(_T("创建客户端Socket失败，错误代码为%d\n"), WSAGetLastError());
-		AfxMessageBox(tipMsg);
-
 		return FALSE;
 	}
-
-	m_flag = TRUE;
 	return TRUE;
+	/*
+	 * socket设置为非阻塞
+	 * unsigned long on = 1;
+	 * ioctlsocket(m_socket, FIONBIO, &on);
+	 */
 }
 
 VOID Client::SetRobortAddress(SOCKADDR_IN * address)
@@ -32,16 +38,10 @@ VOID Client::SetRobortAddress(SOCKADDR_IN * address)
 
 BOOL Client::ConnectToRobort()
 {
-	int a = connect(m_socket, (struct sockaddr *)&m_addressData, sizeof(m_addressData));
-	if (SOCKET_ERROR == a)
+	if (SOCKET_ERROR == connect(m_socket, (struct sockaddr *)&m_addressData, sizeof(m_addressData)))
 	{
-		tipMsg.Format(_T("连接到机械臂失败，错误代码为 %d\n"), WSAGetLastError());
-		AfxMessageBox(tipMsg);
-		// 关闭套接字
-		CloseSocket();
 		return FALSE;
 	}
-
 	return TRUE;
 }
 
@@ -55,23 +55,3 @@ int Client::Recv(SOCKET s, char * buf, int len, int flags)
 	return 0;
 }
 
-BOOL Client::CloseSocket()
-{
-	// 先关闭对套接字收发功能
-	if (0!= shutdown(m_socket, 2))
-	{
-		tipMsg.Format(_T("shutdown函数执行失败,错误代码为 %d"),WSAGetLastError());
-		AfxMessageBox(tipMsg);
-		return FALSE;
-	}
-	// 再释放套接字
-	if (0!= closesocket(m_socket))
-	{
-		tipMsg.Format(_T("win32API closesocket函数执行失败,错误代码为 %d"), WSAGetLastError());
-		AfxMessageBox(tipMsg);
-		return FALSE;
-	}
-	m_flag = FALSE;
-
-	return TRUE;
-}
