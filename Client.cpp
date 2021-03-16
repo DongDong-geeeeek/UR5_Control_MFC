@@ -21,12 +21,12 @@ BOOL Client::CreatSocket(int af, int type, int protocol)
 	{
 		return FALSE;
 	}
+
+	unsigned long on = 1;
+	ioctlsocket(m_socket, FIONBIO, &on);
 	return TRUE;
-	/*
-	 * socket设置为非阻塞
-	 * unsigned long on = 1;
-	 * ioctlsocket(m_socket, FIONBIO, &on);
-	 */
+	
+	 //socket设置为非阻塞 
 }
 
 VOID Client::SetRobortAddress(SOCKADDR_IN * address)
@@ -40,6 +40,10 @@ BOOL Client::ConnectToRobort()
 {
 	if (SOCKET_ERROR == connect(m_socket, (struct sockaddr *)&m_addressData, sizeof(m_addressData)))
 	{
+		if (10035 == WSAGetLastError())
+		{
+			return TRUE;
+		}
 		return FALSE;
 	}
 	return TRUE;
@@ -50,8 +54,21 @@ int Client::Send(SOCKET s, const char * buf, int len, int flags)
 	return 0;
 }
 
-int Client::Recv(SOCKET s, char * buf, int len, int flags)
+BOOL Client::Recv(char * buf,int *num)
 {
-	return 0;
+	
+	*num = recv(m_socket, buf, sizeof(buf), 0);		/* 注意recv是阻塞的  问题是每次只读4个字节*/
+	if (*num > 0)
+	{
+		return TRUE;
+	}
+	else if (WSAGetLastError()== WSAEWOULDBLOCK)
+	{
+		return TRUE;
+	}
+	else
+	{
+		return FALSE;
+	}
 }
 

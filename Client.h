@@ -34,12 +34,14 @@ public:
 	int Send(SOCKET s, const char *buf, int len, int flags);
 	
 	// 接受数据(还未写具体实现)
-	int Recv(SOCKET s, char *buf, int len, int flags);
+	BOOL Recv(char *buf, int *num);
 
 public:
 	SOCKADDR_IN m_addressData;// 机械臂地址信息
 	SOCKET m_socket;	// 套接字Socket
 	BOOL m_flag;		// false 表示Socket无效,True表示Socket有效
 	BOOL m_conSucc;		// 标识时候连接成功
+
+	HANDLE m_hThread;	// 线程句柄
 };
 

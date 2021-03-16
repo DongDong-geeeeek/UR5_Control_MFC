@@ -14,6 +14,8 @@
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
+#define  PACKAGESIZE	12
+UINT __cdecl MyControllingFunction(LPVOID pParam);
 
 /***********************************************************************************/
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
@@ -75,6 +77,8 @@ BEGIN_MESSAGE_MAP(CCtrlURobotDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTCONNECT, &CCtrlURobotDlg::OnBnClickedButconnect)
 	ON_BN_CLICKED(IDC_BUTTDISCONECT, &CCtrlURobotDlg::OnBnClickedButtdisconect)
 	ON_WM_CLOSE()
+	ON_BN_CLICKED(IDC_BUTCLRRECV, &CCtrlURobotDlg::OnBnClickedButclrrecv)
+	ON_BN_CLICKED(IDC_BUTCLRSEND, &CCtrlURobotDlg::OnBnClickedButclrsend)
 END_MESSAGE_MAP()
 
 
@@ -111,7 +115,8 @@ BOOL CCtrlURobotDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 
-	WinSockInit();										/*打开对话框第一步先打开Socket库并校验其版本*/
+	/*打开对话框第一步先打开Socket库并校验其版本*/
+	WinSockInit();										
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -174,7 +179,7 @@ void CCtrlURobotDlg::OnBnClickedButconnect()
 	if (m_digClient.m_flag == FALSE)//套接字不存在
 	{
 		// 创建套接字
-		if (TRUE == m_digClient.CreatSocket()) // 创建成功
+		if (m_digClient.CreatSocket()) // 创建成功
 		{
 			m_digClient.m_flag = TRUE;
 			// 尝试连接
@@ -187,7 +192,7 @@ void CCtrlURobotDlg::OnBnClickedButconnect()
 			inet_pton(AF_INET, strRobotIp, &addrSer.sin_addr);	//  将IP地址存进addrSer结构体
 			m_digClient.SetRobortAddress(&addrSer);
 
-			if (TRUE == m_digClient.ConnectToRobort()) 
+			if (m_digClient.ConnectToRobort()) 
 			{
 				/*设置连接成功标识符!!!!!!!!!!*/
 				m_digClient.m_conSucc = TRUE;
@@ -201,7 +206,8 @@ void CCtrlURobotDlg::OnBnClickedButconnect()
 				CWnd *cEditPort = GetDlgItem(IDC_EDITPORT);
 				cEditIp->EnableWindow(FALSE);
 				cEditPort->EnableWindow(FALSE);
-				return;
+				
+				//return;
 			} 
 			else // 连接失败,提示并返回
 			{
@@ -248,7 +254,8 @@ void CCtrlURobotDlg::OnBnClickedButconnect()
 				CWnd *cEditPort = GetDlgItem(IDC_EDITPORT);
 				cEditIp->EnableWindow(FALSE);
 				cEditPort->EnableWindow(FALSE);
-				return;
+				
+				//return;
 			} 
 			else  // 连接失败
 			{
@@ -268,16 +275,29 @@ void CCtrlURobotDlg::OnBnClickedButconnect()
 		}
 	}
 	/**************************************************************/
-	// 调用线程函数接受数据
+	//调用线程函数接受数据
+	if (m_digClient.m_flag == TRUE && m_digClient.m_conSucc == TRUE)
+	{
+		/*第一次连接成功进入线程处理函数*/
+		CWinThread* MyThread = AfxBeginThread(MyControllingFunction, this);
+	}
+
+	return;
 }
 
 void CCtrlURobotDlg::OnBnClickedButtdisconect()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	closesocket(m_digClient.m_socket);
 	m_digClient.m_flag = FALSE;
 	m_digClient.m_conSucc = FALSE;
+	::WaitForSingleObject(m_digClient.m_hThread, INFINITE);
+	CloseHandle(m_digClient.m_hThread);
 
+	if (m_digClient.m_socket!= INVALID_SOCKET)
+	{
+		closesocket(m_digClient.m_socket);						// 断开连接时程序出现过崩溃!!!!
+	}
+	
 	CWnd *cEditIp = GetDlgItem(IDC_EDITIPADDR);
 	CWnd *cEditPort = GetDlgItem(IDC_EDITPORT);
 	cEditIp->EnableWindow(TRUE);
@@ -286,9 +306,136 @@ void CCtrlURobotDlg::OnBnClickedButtdisconect()
 
 void CCtrlURobotDlg::OnClose()
 {
-	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	if (m_digClient.m_socket != INVALID_SOCKET)
+	{
+		closesocket(m_digClient.m_socket);						// 断开连接时程序出现过崩溃!!!!
+	}
 
-	closesocket(m_digClient.m_socket);
 	WSACleanup();
 	CDialogEx::OnClose();
+}
+
+UINT __cdecl MyControllingFunction(LPVOID pParam)
+{
+	CCtrlURobotDlg * pCtrlDlg = (CCtrlURobotDlg *)pParam;
+	char* strRecvBuf = new char[1024];	// 最终数据存储区(堆上)
+	memset(strRecvBuf, '\0', 1024);
+
+	char strRecvTemp[100] = { 0 };		// 临时数据存储区(栈上)
+	int numOfRecive ;
+	int nLength = 0;					// 总共接收的数据长度
+
+
+	/**/
+	while ((pCtrlDlg->m_digClient.m_flag == TRUE) && (pCtrlDlg->m_digClient.m_conSucc == TRUE)) /*线程可以继续执行*/ 
+	{
+		unsigned short caseCode = 0;
+		BOOL bTest = FALSE;
+		if (pCtrlDlg->m_digClient.Recv(strRecvTemp, &numOfRecive))
+		{
+			if (WSAGetLastError() == WSAEWOULDBLOCK)
+				bTest = TRUE;
+			else
+				bTest = FALSE;
+		}
+		/*****************************************************/
+		if (bTest)// 阻塞
+		{
+			if (nLength)		// 阻塞但是数量不够标准
+				caseCode = 2;
+			else				// 没有接受到任何数据
+				caseCode = 1;
+		}
+		else					// 不阻塞
+		{
+			if (nLength) 
+				caseCode = 4;	// 不阻塞但是数据不为0
+			else
+				caseCode = 3;	// 不阻塞数据为0,表示刚刚开始接收数据
+		}
+		/*****************************************************/
+
+		CEdit * pEditRecv = (CEdit *)pCtrlDlg->GetDlgItem(IDC_EDITRECV);
+		CString strRecv_Head = _T("Recv<<: ");
+		CString recvText = NULL;
+		CString recvShort;
+
+		switch (caseCode)
+		{
+		case 1:
+			continue;
+		case 2:
+			/*把接收到的数据变成字符串*/
+			for (int i = 0; i < nLength; i++)
+			{
+				recvShort.Format(_T("%02X "), strRecvBuf[i]);
+				recvText.Append(recvShort);
+			}
+
+			if (NULL != pEditRecv)
+			{
+				CString strDispRecv = NULL;
+				pEditRecv->GetWindowTextW(strDispRecv);
+				strDispRecv += strRecv_Head;
+				strDispRecv += recvText;
+				strDispRecv += "\r\n";
+				pEditRecv->SetWindowTextW(strDispRecv);
+				nLength = 0;
+			}
+			continue;
+		case 3:
+			memcpy(strRecvBuf + nLength, strRecvTemp, numOfRecive);			/*把临时缓冲区的数据拷贝到最终缓冲区*/
+			nLength += numOfRecive;
+			continue;
+		case 4:
+			memcpy(strRecvBuf + nLength, strRecvTemp, numOfRecive);			/*把临时缓冲区的数据拷贝到最终缓冲区*/
+			nLength += numOfRecive;
+
+			if (nLength >= PACKAGESIZE )
+			{
+				for (int i = 0; i < nLength; i++)
+				{
+					recvShort.Format(_T("%02X "), strRecvBuf[i]);
+					recvText.Append(recvShort);
+				}
+				if (NULL != pEditRecv)
+				{
+					CString strDispRecv = NULL;
+					pEditRecv->GetWindowTextW(strDispRecv);
+					strDispRecv += strRecv_Head;
+					strDispRecv += recvText;
+
+					strDispRecv += "\r\n";
+					pEditRecv->SetWindowTextW(strDispRecv);
+					nLength = 0;
+				}
+				continue;
+			} 
+			else
+			{
+				continue;
+			}
+		}
+	}
+
+	delete[]strRecvBuf;
+	return 0;
+}
+
+
+void CCtrlURobotDlg::OnBnClickedButclrrecv()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CEdit * pEditRecv = (CEdit *)GetDlgItem(IDC_EDITRECV);
+	CString clearStrRecv = NULL;
+	pEditRecv->SetWindowTextW(clearStrRecv);
+}
+
+
+void CCtrlURobotDlg::OnBnClickedButclrsend()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CEdit * pEditSend = (CEdit *)GetDlgItem(IDC_EDITSEND);
+	CString clearStrSend = NULL;
+	pEditSend->SetWindowTextW(clearStrSend);
 }
