@@ -58,11 +58,14 @@ BOOL Client::Recv(char * buf,int *num)
 {
 	
 	*num = recv(m_socket, buf, sizeof(buf), 0);		/* 注意recv是阻塞的  问题是每次只读4个字节*/
+	/*u_long numofS = 0;
+	ioctlsocket(m_socket, FIONREAD, &numofS);*/		// 该函数本来的目的是为了看一下recv一次读取的数据量
+													// 但是该函数本身就是对Socket的一次操作,因此会影响下面的WSAGetLastError()函数的行为
 	if (*num > 0)
 	{
 		return TRUE;
 	}
-	else if (WSAGetLastError()== WSAEWOULDBLOCK)
+	else if (WSAGetLastError() == WSAEWOULDBLOCK)
 	{
 		return TRUE;
 	}
