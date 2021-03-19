@@ -34,7 +34,7 @@ public:
 	int Send(SOCKET s, const char *buf, int len, int flags);
 	
 	// 接受数据(还未写具体实现)
-	BOOL Recv(char *buf, int *num);
+	int Recv(char *buf, int howmany);
 
 public:
 	SOCKADDR_IN m_addressData;// 机械臂地址信息

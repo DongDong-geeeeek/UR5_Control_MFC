@@ -40,7 +40,7 @@ BOOL Client::ConnectToRobort()
 {
 	if (SOCKET_ERROR == connect(m_socket, (struct sockaddr *)&m_addressData, sizeof(m_addressData)))
 	{
-		if (10035 == WSAGetLastError())
+		if (WSAEWOULDBLOCK == WSAGetLastError())
 		{
 			return TRUE;
 		}
@@ -54,24 +54,46 @@ int Client::Send(SOCKET s, const char * buf, int len, int flags)
 	return 0;
 }
 
-BOOL Client::Recv(char * buf,int *num)
+/*	使用recv循环接收数据
+	如果数据没有接收完,不返回
+	如果recv接收时发生阻塞,那么继续下一次循环,如果
+	是其他类型的错误,则该函数提前终止,做出提示
+*/
+
+int Client::Recv(char * buf, int howmany)
 {
-	
-	*num = recv(m_socket, buf, sizeof(buf), 0);		/* 注意recv是阻塞的  问题是每次只读4个字节*/
-	/*u_long numofS = 0;
-	ioctlsocket(m_socket, FIONREAD, &numofS);*/		// 该函数本来的目的是为了看一下recv一次读取的数据量
-													// 但是该函数本身就是对Socket的一次操作,因此会影响下面的WSAGetLastError()函数的行为
-	if (*num > 0)
+	char * chartemp = new char[howmany];
+	memset(chartemp, '\0', howmany);
+
+	int ret = 0;
+	int temp = 0;
+	while (ret < howmany)
 	{
-		return TRUE;
+		temp = recv(m_socket, chartemp + ret, howmany - ret, 0);
+		if (temp == SOCKET_ERROR)
+		{
+			if (WSAGetLastError() == WSAEWOULDBLOCK)
+			{
+				continue;
+			}
+			else if(WSAGetLastError() == WSAENOTSOCK)
+			{
+				break;
+			}
+			else
+			{
+				CString tipMsg = NULL;
+				tipMsg.Format(_T("recv函数出错,错误代码为 %d\n"), WSAGetLastError());
+				AfxMessageBox(tipMsg);
+				break;
+			}
+		}
+		ret += temp;
 	}
-	else if (WSAGetLastError() == WSAEWOULDBLOCK)
-	{
-		return TRUE;
-	}
-	else
-	{
-		return FALSE;
-	}
+
+	memcpy(buf, chartemp, ret);
+
+	delete[] chartemp;
+	return ret;
 }
 

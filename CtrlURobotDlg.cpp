@@ -14,7 +14,10 @@
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
-#define  PACKAGESIZE	12
+#define  FIRST_PACKAGE  1105
+#define  SECON_PACKAGE	1395
+#define  PACKAGESIZE	725
+
 UINT __cdecl MyControllingFunction(LPVOID pParam);
 
 /***********************************************************************************/
@@ -57,7 +60,7 @@ END_MESSAGE_MAP()
 
 CCtrlURobotDlg::CCtrlURobotDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_CTRLUROBOT_DIALOG, pParent)
-	, m_strRobortIpAdress(_T("192.168.1.114"))	/*初始化列表*/
+	, m_strRobortIpAdress(_T("192.168.1.11"))	/*初始化列表*/
 	, m_iRobortPort(30001)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
@@ -306,6 +309,9 @@ void CCtrlURobotDlg::OnBnClickedButtdisconect()
 
 void CCtrlURobotDlg::OnClose()
 {
+	m_digClient.m_flag = FALSE;
+	m_digClient.m_conSucc = FALSE;
+
 	if (m_digClient.m_socket != INVALID_SOCKET)
 	{
 		closesocket(m_digClient.m_socket);						// 断开连接时程序出现过崩溃!!!!
@@ -318,107 +324,79 @@ void CCtrlURobotDlg::OnClose()
 UINT __cdecl MyControllingFunction(LPVOID pParam)
 {
 	CCtrlURobotDlg * pCtrlDlg = (CCtrlURobotDlg *)pParam;
-	char* strRecvBuf = new char[1024];	// 最终数据存储区(堆上)
-	memset(strRecvBuf, '\0', 1024);
+	// 在堆上开辟一块最终缓冲区
 
-	char strRecvTemp[100] = { 0 };		// 临时数据存储区(栈上)
-	int numOfRecive ;
-	int nLength = 0;					// 总共接收的数据长度
+	char *firstRecvBuf = new char[FIRST_PACKAGE];
+	char *seconRecvBuf = new char[SECON_PACKAGE];
+	unsigned char *strRecvBuf = new unsigned char[PACKAGESIZE];
+	char* strRecvTemp = new char[PACKAGESIZE];
+	memset(strRecvBuf, '\0', PACKAGESIZE);
+	memset(strRecvTemp, '\0', PACKAGESIZE);
 
+	CEdit * pEditRecv = (CEdit *)pCtrlDlg->GetDlgItem(IDC_EDITRECV);
+	CString lastDisp = NULL;
+	unsigned short a = 1;
+	
+	CString recvTemp = NULL;
 
-	/**/
-	while ((pCtrlDlg->m_digClient.m_flag == TRUE) && (pCtrlDlg->m_digClient.m_conSucc == TRUE)) /*线程可以继续执行*/ 
+	while ((pCtrlDlg->m_digClient.m_flag == TRUE) && (pCtrlDlg->m_digClient.m_conSucc == TRUE))
 	{
-		unsigned short caseCode = 0;
-		BOOL bTest = FALSE;
-		if (pCtrlDlg->m_digClient.Recv(strRecvTemp, &numOfRecive))
+		if (a == 1)
 		{
-			if (WSAGetLastError() == WSAEWOULDBLOCK)
-				bTest = TRUE;
-			else
-				bTest = FALSE;
+			// 读取1105包	然后丢弃
+			pCtrlDlg->m_digClient.Recv(firstRecvBuf, FIRST_PACKAGE);
+			a++;
+			delete[]firstRecvBuf;
 		}
-		/*****************************************************/
-		if (bTest)// 阻塞
+		else if (a == 2)
 		{
-			if (nLength)		// 阻塞但是数量不够标准
-				caseCode = 2;
-			else				// 没有接受到任何数据
-				caseCode = 1;
+			// 读取1395包	然后丢弃
+			pCtrlDlg->m_digClient.Recv(seconRecvBuf, SECON_PACKAGE);
+			a++;
+			delete[]seconRecvBuf;
 		}
-		else					// 不阻塞
+		else if (a >= 3)
 		{
-			if (nLength) 
-				caseCode = 4;	// 不阻塞但是数据不为0
-			else
-				caseCode = 3;	// 不阻塞数据为0,表示刚刚开始接收数据
-		}
-		/*****************************************************/
+			// 读取725包
+			int numOfReceive = 0;
+			numOfReceive = pCtrlDlg->m_digClient.Recv(strRecvTemp, PACKAGESIZE);
+			memcpy(strRecvBuf, strRecvTemp, PACKAGESIZE);						// 拷贝到strRecv中的数据量是我可以指定的
+			memset(strRecvTemp, '\0', PACKAGESIZE);								// 这里犯过错误,memset越界了,导致程序崩溃
 
-		CEdit * pEditRecv = (CEdit *)pCtrlDlg->GetDlgItem(IDC_EDITRECV);
-		CString strRecv_Head = _T("Recv<<: ");
-		CString recvText = NULL;
-		CString recvShort;
-
-		switch (caseCode)
-		{
-		case 1:
-			continue;
-		case 2:
-			/*把接收到的数据变成字符串*/
-			for (int i = 0; i < nLength; i++)
+			// 显示数据
+			CString recvText = NULL;
+			for (int i = 0; i < numOfReceive; i++)
 			{
-				recvShort.Format(_T("%02X "), strRecvBuf[i]);
-				recvText.Append(recvShort);
-			}
-
-			if (NULL != pEditRecv)
-			{
-				CString strDispRecv = NULL;
-				pEditRecv->GetWindowTextW(strDispRecv);
-				strDispRecv += strRecv_Head;
-				strDispRecv += recvText;
-				strDispRecv += "\r\n";
-				pEditRecv->SetWindowTextW(strDispRecv);
-				nLength = 0;
-			}
-			continue;
-		case 3:
-			memcpy(strRecvBuf + nLength, strRecvTemp, numOfRecive);			/*把临时缓冲区的数据拷贝到最终缓冲区*/
-			nLength += numOfRecive;
-			continue;
-		case 4:
-			memcpy(strRecvBuf + nLength, strRecvTemp, numOfRecive);			/*把临时缓冲区的数据拷贝到最终缓冲区*/
-			nLength += numOfRecive;
-
-			if (nLength >= PACKAGESIZE )
-			{
-				for (int i = 0; i < nLength; i++)
+				recvTemp.Empty();
+				recvTemp.Format(_T("%02X\t"), strRecvBuf[i]);
+				recvText.Append(recvTemp);
+				if ((i + 1) % 11 == 0)
 				{
-					recvShort.Format(_T("%02X "), strRecvBuf[i]);
-					recvText.Append(recvShort);
+					recvText += "\r\n";
 				}
-				if (NULL != pEditRecv)
-				{
-					CString strDispRecv = NULL;
-					pEditRecv->GetWindowTextW(strDispRecv);
-					strDispRecv += strRecv_Head;
-					strDispRecv += recvText;
-
-					strDispRecv += "\r\n";
-					pEditRecv->SetWindowTextW(strDispRecv);
-					nLength = 0;
-				}
-				continue;
-			} 
-			else
-			{
-				continue;
 			}
+			recvText += "\r\n";
+
+			CString strDisp = NULL;
+			strDisp += lastDisp;
+			strDisp += recvText;
+			
+			pEditRecv->SetWindowTextW(strDisp);
+
+			int nLength = pEditRecv->GetWindowTextLengthW();// 将光标聚焦于末尾
+			pEditRecv->SetSel(nLength, nLength, FALSE);
+			pEditRecv->SetFocus();
+
+			lastDisp = recvText;
 		}
+
 	}
 
+	/*学习多线程,然后添加WaitSingleObiect()退出线程*/
+
+
 	delete[]strRecvBuf;
+	delete[]strRecvTemp;
 	return 0;
 }
 
