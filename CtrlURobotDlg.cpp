@@ -11,6 +11,7 @@
 #include "Common.h"
 #include "Client.h"
 
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -20,7 +21,9 @@
 
 UINT __cdecl MyControllingFunction(LPVOID pParam);
 
-/***********************************************************************************/
+// 定义一个全局代码段
+CRITICAL_SECTION CriticalSection;
+
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
 class CAboutDlg : public CDialogEx
@@ -53,7 +56,6 @@ void CAboutDlg::DoDataExchange(CDataExchange* pDX)
 BEGIN_MESSAGE_MAP(CAboutDlg, CDialogEx)
 END_MESSAGE_MAP()
 
-/***********************************************************************************/
 // CCtrlURobotDlg 对话框
 
 
@@ -119,8 +121,9 @@ BOOL CCtrlURobotDlg::OnInitDialog()
 	// TODO: 在此添加额外的初始化代码
 
 	/*打开对话框第一步先打开Socket库并校验其版本*/
-	WinSockInit();										
-
+	WinSockInit();					
+	/*初始化关键代码段*/
+	InitializeCriticalSection(&CriticalSection);		
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -209,8 +212,7 @@ void CCtrlURobotDlg::OnBnClickedButconnect()
 				CWnd *cEditPort = GetDlgItem(IDC_EDITPORT);
 				cEditIp->EnableWindow(FALSE);
 				cEditPort->EnableWindow(FALSE);
-				
-				//return;
+
 			} 
 			else // 连接失败,提示并返回
 			{
@@ -257,8 +259,7 @@ void CCtrlURobotDlg::OnBnClickedButconnect()
 				CWnd *cEditPort = GetDlgItem(IDC_EDITPORT);
 				cEditIp->EnableWindow(FALSE);
 				cEditPort->EnableWindow(FALSE);
-				
-				//return;
+
 			} 
 			else  // 连接失败
 			{
@@ -278,11 +279,11 @@ void CCtrlURobotDlg::OnBnClickedButconnect()
 		}
 	}
 	/**************************************************************/
-	//调用线程函数接受数据
 	if (m_digClient.m_flag == TRUE && m_digClient.m_conSucc == TRUE)
 	{
-		/*第一次连接成功进入线程处理函数*/
+		/*工作线程*/
 		CWinThread* MyThread = AfxBeginThread(MyControllingFunction, this);
+		m_digClient.m_hThread = MyThread->m_hThread;
 	}
 
 	return;
@@ -291,10 +292,11 @@ void CCtrlURobotDlg::OnBnClickedButconnect()
 void CCtrlURobotDlg::OnBnClickedButtdisconect()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	/*进入了线程之后,如果需要修改某些共享值的话,就要做同步处理*/
+	EnterCriticalSection(&CriticalSection);
 	m_digClient.m_flag = FALSE;
 	m_digClient.m_conSucc = FALSE;
-	::WaitForSingleObject(m_digClient.m_hThread, INFINITE);
-	CloseHandle(m_digClient.m_hThread);
+	LeaveCriticalSection(&CriticalSection);
 
 	if (m_digClient.m_socket!= INVALID_SOCKET)
 	{
@@ -304,19 +306,24 @@ void CCtrlURobotDlg::OnBnClickedButtdisconect()
 	CWnd *cEditIp = GetDlgItem(IDC_EDITIPADDR);
 	CWnd *cEditPort = GetDlgItem(IDC_EDITPORT);
 	cEditIp->EnableWindow(TRUE);
-	cEditPort->EnableWindow(TRUE);
+	cEditPort->EnableWindow(TRUE);								// 不用在这个位置删除临界区对象
 }
 
 void CCtrlURobotDlg::OnClose()
 {
+	EnterCriticalSection(&CriticalSection);
 	m_digClient.m_flag = FALSE;
 	m_digClient.m_conSucc = FALSE;
+	LeaveCriticalSection(&CriticalSection);
+
+	Sleep(200);													// 以0.2s为代价,确保对话框关闭时,线程已正常结束
 
 	if (m_digClient.m_socket != INVALID_SOCKET)
 	{
-		closesocket(m_digClient.m_socket);						// 断开连接时程序出现过崩溃!!!!
+		closesocket(m_digClient.m_socket);						
 	}
 
+	DeleteCriticalSection(&CriticalSection);					// 删除关键代码段对象
 	WSACleanup();
 	CDialogEx::OnClose();
 }
@@ -338,8 +345,17 @@ UINT __cdecl MyControllingFunction(LPVOID pParam)
 	unsigned short a = 1;
 	
 	CString recvTemp = NULL;
-
-	while ((pCtrlDlg->m_digClient.m_flag == TRUE) && (pCtrlDlg->m_digClient.m_conSucc == TRUE))
+	
+	/**/
+	BOOL bsockFlag = FALSE;
+	BOOL bconSucc = FALSE;
+	EnterCriticalSection(&CriticalSection);
+	bsockFlag = pCtrlDlg->m_digClient.m_flag;
+	bconSucc = pCtrlDlg->m_digClient.m_conSucc;
+	LeaveCriticalSection(&CriticalSection);
+	/**/
+	
+	while (bsockFlag && bconSucc)
 	{
 		if (a == 1)
 		{
@@ -390,13 +406,15 @@ UINT __cdecl MyControllingFunction(LPVOID pParam)
 			lastDisp = recvText;
 		}
 
+		EnterCriticalSection(&CriticalSection);
+		bsockFlag = pCtrlDlg->m_digClient.m_flag;
+		bconSucc = pCtrlDlg->m_digClient.m_conSucc;
+		LeaveCriticalSection(&CriticalSection);
 	}
-
-	/*学习多线程,然后添加WaitSingleObiect()退出线程*/
-
 
 	delete[]strRecvBuf;
 	delete[]strRecvTemp;
+
 	return 0;
 }
 
@@ -417,3 +435,4 @@ void CCtrlURobotDlg::OnBnClickedButclrsend()
 	CString clearStrSend = NULL;
 	pEditSend->SetWindowTextW(clearStrSend);
 }
+
