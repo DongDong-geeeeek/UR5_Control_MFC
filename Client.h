@@ -31,7 +31,7 @@ public:
 	BOOL ConnectToRobort();
 	
 	// 发送数据(还未写具体实现)
-	int Send(SOCKET s, const char *buf, int len, int flags);
+	int Send(const char *buf, int len);
 	
 	// 接受数据(还未写具体实现)
 	int Recv(char *buf, int howmany);

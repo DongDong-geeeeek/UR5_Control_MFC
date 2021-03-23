@@ -190,6 +190,7 @@
   <ItemGroup>
     <ClInclude Include="Client.h" />
     <ClInclude Include="Common.h" />
+    <ClInclude Include="ControlUR.h" />
     <ClInclude Include="ConvertTools.h" />
     <ClInclude Include="CtrlURobot.h" />
     <ClInclude Include="CtrlURobotDlg.h" />
@@ -201,6 +202,7 @@
   <ItemGroup>
     <ClCompile Include="Client.cpp" />
     <ClCompile Include="Common.cpp" />
+    <ClCompile Include="ControlUR.cpp" />
     <ClCompile Include="ConvertTools.cpp" />
     <ClCompile Include="CtrlURobot.cpp" />
     <ClCompile Include="CtrlURobotDlg.cpp" />

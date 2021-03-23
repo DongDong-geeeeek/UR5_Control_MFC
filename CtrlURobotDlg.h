@@ -43,5 +43,5 @@ public:
 	afx_msg void OnClose();
 	afx_msg void OnBnClickedButclrrecv();
 	afx_msg void OnBnClickedButclrsend();
-	afx_msg void OnBnClickedGetexitcode();
+	afx_msg void OnBnClickedSendBtn();
 };

@@ -84,6 +84,7 @@ BEGIN_MESSAGE_MAP(CCtrlURobotDlg, CDialogEx)
 	ON_WM_CLOSE()
 	ON_BN_CLICKED(IDC_BUTCLRRECV, &CCtrlURobotDlg::OnBnClickedButclrrecv)
 	ON_BN_CLICKED(IDC_BUTCLRSEND, &CCtrlURobotDlg::OnBnClickedButclrsend)
+	ON_BN_CLICKED(IDC_SEND_BTN, &CCtrlURobotDlg::OnBnClickedSendBtn)
 END_MESSAGE_MAP()
 
 
@@ -175,8 +176,6 @@ HCURSOR CCtrlURobotDlg::OnQueryDragIcon()
 {
 	return static_cast<HCURSOR>(m_hIcon);
 }
-
-/******************************回调函数*****************************/
 
 void CCtrlURobotDlg::OnBnClickedButconnect()
 {
@@ -434,3 +433,54 @@ void CCtrlURobotDlg::OnBnClickedButclrsend()
 	pEditSend->SetWindowTextW(clearStrSend);
 }
 
+void CCtrlURobotDlg::OnBnClickedSendBtn()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CEdit * pEditSend = (CEdit *)GetDlgItem(IDC_EDITSEND);
+	ASSERT(pEditSend);
+
+	CString strSend = NULL;
+	// 获取到发送框的宽字符型字符串
+	pEditSend->GetWindowTextW(strSend);				
+	// 接上换行符
+	strSend += "\r\n";
+	if (strSend.IsEmpty())
+	{
+		CString tipMsg;
+		tipMsg.Format(_T("请不要发送空白数据...."));
+		AfxMessageBox(tipMsg);
+	}
+	else
+	{
+		// GetLength()不包括null结束符,因此其返回值为宽字符的数量
+		int iLen = strSend.GetLength();	
+		// ASCII字符需要null结束符
+		iLen++;
+		// 为ASCII字符申请空间以存储
+		char *bufOfSend= new char[iLen];
+
+		// 宽字符转换为窄字符
+		WideCharToMultiByte(CP_OEMCP,	//	代码页
+							0,			//	默认0
+							strSend,	//	待转换的UniCode字符串
+							-1,			//	处理整个字符串,包括null终止字符
+							bufOfSend,	//	转换后的字符
+							iLen,		//	转换后的字符大小	
+							NULL,		//	默认
+							NULL);		//	默认
+		CString tipMsg = NULL;
+		if (iLen == m_digClient.Send(bufOfSend, iLen))
+		{
+			tipMsg.Format(_T("发送成功..."));
+		}
+		else
+		{
+			tipMsg.Format(_T("发送失败..."));
+		}
+
+		CStatic * pStaticState = (CStatic *)GetDlgItem(IDC_STATIC_SEND_STATE);
+		pStaticState->SetWindowText(tipMsg);
+
+		delete[]bufOfSend;
+	}
+}
