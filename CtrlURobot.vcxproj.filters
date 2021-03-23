@@ -39,7 +39,7 @@
     <ClInclude Include="Client.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="CThread.h">
+    <ClInclude Include="ConvertTools.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -59,7 +59,7 @@
     <ClCompile Include="Client.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="CThread.cpp">
+    <ClCompile Include="ConvertTools.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

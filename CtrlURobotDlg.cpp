@@ -10,7 +10,7 @@
 #include <WS2tcpip.h>
 #include "Common.h"
 #include "Client.h"
-
+#include "ConvertTools.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -418,7 +418,6 @@ UINT __cdecl MyControllingFunction(LPVOID pParam)
 	return 0;
 }
 
-
 void CCtrlURobotDlg::OnBnClickedButclrrecv()
 {
 	// TODO: 在此添加控件通知处理程序代码
@@ -426,7 +425,6 @@ void CCtrlURobotDlg::OnBnClickedButclrrecv()
 	CString clearStrRecv = NULL;
 	pEditRecv->SetWindowTextW(clearStrRecv);
 }
-
 
 void CCtrlURobotDlg::OnBnClickedButclrsend()
 {
