@@ -39,5 +39,6 @@ public:
 	/*×¢ÊÍÇë²Î¿¼BytesToInt*/
 	uint64_t BytesToUint64_t(const char * Res, int start);
 
+public:
 };
 

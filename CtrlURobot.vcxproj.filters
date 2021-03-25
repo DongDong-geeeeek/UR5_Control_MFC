@@ -42,7 +42,10 @@
     <ClInclude Include="ConvertTools.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="ControlUR.h">
+    <ClInclude Include="CMDofUR5script.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="RobotState.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -65,7 +68,10 @@
     <ClCompile Include="ConvertTools.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="ControlUR.cpp">
+    <ClCompile Include="CMDofUR5script.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="RobotState.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

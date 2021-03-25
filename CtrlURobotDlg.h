@@ -37,11 +37,14 @@ public:
 	// 绑定到界面端口输入框的变量
 	UINT m_iRobortPort;
 	Client m_digClient;
-	
+	char m_RobotStateData[1116];			// 先设置好这个成员变量,在需要的时候,可以将每次读取到数据都copy到这里
+											// 然后就可以伺机查看,暂时没有用到
 	afx_msg void OnBnClickedButconnect();
 	afx_msg void OnBnClickedButtdisconect();
 	afx_msg void OnClose();
 	afx_msg void OnBnClickedButclrrecv();
 	afx_msg void OnBnClickedButclrsend();
 	afx_msg void OnBnClickedSendBtn();
+	afx_msg void OnBnClickedPoweronBtn();
+	afx_msg void OnBnClickedPoweroffBtn();
 };

@@ -189,20 +189,21 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Client.h" />
+    <ClInclude Include="CMDofUR5script.h" />
     <ClInclude Include="Common.h" />
-    <ClInclude Include="ControlUR.h" />
     <ClInclude Include="ConvertTools.h" />
     <ClInclude Include="CtrlURobot.h" />
     <ClInclude Include="CtrlURobotDlg.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="RobotState.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Client.cpp" />
+    <ClCompile Include="CMDofUR5script.cpp" />
     <ClCompile Include="Common.cpp" />
-    <ClCompile Include="ControlUR.cpp" />
     <ClCompile Include="ConvertTools.cpp" />
     <ClCompile Include="CtrlURobot.cpp" />
     <ClCompile Include="CtrlURobotDlg.cpp" />
@@ -212,6 +213,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="RobotState.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="CtrlURobot.rc" />

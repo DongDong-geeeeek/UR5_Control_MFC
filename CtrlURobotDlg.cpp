@@ -11,13 +11,15 @@
 #include "Common.h"
 #include "Client.h"
 #include "ConvertTools.h"
+#include "CMDofUR5script.h"
+#include "RobotState.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
-#define  FIRST_PACKAGE  1105
-#define  SECON_PACKAGE	1395
-#define  PACKAGESIZE	725
+#define  FIRST_PACKAGE  1116
+#define  SECON_PACKAGE	1116
+#define  PACKAGESIZE	1116
 
 UINT __cdecl MyControllingFunction(LPVOID pParam);
 
@@ -63,7 +65,7 @@ END_MESSAGE_MAP()
 CCtrlURobotDlg::CCtrlURobotDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_CTRLUROBOT_DIALOG, pParent)
 	, m_strRobortIpAdress(_T("192.168.1.11"))	/*初始化列表*/
-	, m_iRobortPort(30001)
+	, m_iRobortPort(30003)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -85,6 +87,8 @@ BEGIN_MESSAGE_MAP(CCtrlURobotDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTCLRRECV, &CCtrlURobotDlg::OnBnClickedButclrrecv)
 	ON_BN_CLICKED(IDC_BUTCLRSEND, &CCtrlURobotDlg::OnBnClickedButclrsend)
 	ON_BN_CLICKED(IDC_SEND_BTN, &CCtrlURobotDlg::OnBnClickedSendBtn)
+	ON_BN_CLICKED(IDC_POWERON_BTN, &CCtrlURobotDlg::OnBnClickedPoweronBtn)
+	ON_BN_CLICKED(IDC_POWEROFF_BTN, &CCtrlURobotDlg::OnBnClickedPoweroffBtn)
 END_MESSAGE_MAP()
 
 
@@ -180,7 +184,6 @@ HCURSOR CCtrlURobotDlg::OnQueryDragIcon()
 void CCtrlURobotDlg::OnBnClickedButconnect()
 {
 	UpdateData(TRUE);	
-	/**************************************************************/
 	if (m_digClient.m_flag == FALSE)//套接字不存在
 	{
 		// 创建套接字
@@ -372,13 +375,27 @@ UINT __cdecl MyControllingFunction(LPVOID pParam)
 		}
 		else if (a >= 3)
 		{
-			// 读取725包
 			int numOfReceive = 0;
 			numOfReceive = pCtrlDlg->m_digClient.Recv(strRecvTemp, PACKAGESIZE);
 			memcpy(strRecvBuf, strRecvTemp, PACKAGESIZE);						// 拷贝到strRecv中的数据量是我可以指定的
 			memset(strRecvTemp, '\0', PACKAGESIZE);								// 这里犯过错误,memset越界了,导致程序崩溃
 
-			// 显示数据
+			/******************************************************************************/
+			/*如何获取机械臂的状态数据????如下是示例代码和使用步骤代码行数383-->396*/
+			/*
+			 * 0.显示ASCII码数据应修改成显示机械臂的状态信息(使用方法或步骤如下:)
+			 * 1.创建RobotState类
+			 * 2.使用RobotState类中的RS_UpDateData()方法更新数据
+			 * 3.调用RobotState类的方法即可获取相应的状态信息信息
+			 */
+			RobotState nowState;
+			nowState.RS_UpDateData((char *)strRecvBuf);
+			int size = nowState.m_iPackageSize;									// 获取到当前数据包的大小
+			double time = nowState.RS_GetTime(TRUE);							// 获取时间单位s,自打开UR5那一刻开始算起
+			st_q_actual_pos st_J_A_pos = nowState.RS_GetJointActualPos(TRUE);	// 获取到当前关节的实际坐标
+			double a = nowState.RS_GetProgState(TRUE);
+			/*****************************************************************************/
+
 			CString recvText = NULL;
 			for (int i = 0; i < numOfReceive; i++)
 			{
@@ -438,7 +455,6 @@ void CCtrlURobotDlg::OnBnClickedSendBtn()
 	// TODO: 在此添加控件通知处理程序代码
 	CEdit * pEditSend = (CEdit *)GetDlgItem(IDC_EDITSEND);
 	ASSERT(pEditSend);
-
 	CString strSend = NULL;
 	// 获取到发送框的宽字符型字符串
 	pEditSend->GetWindowTextW(strSend);				
@@ -468,6 +484,7 @@ void CCtrlURobotDlg::OnBnClickedSendBtn()
 							iLen,		//	转换后的字符大小	
 							NULL,		//	默认
 							NULL);		//	默认
+
 		CString tipMsg = NULL;
 		if (iLen == m_digClient.Send(bufOfSend, iLen))
 		{
@@ -484,3 +501,26 @@ void CCtrlURobotDlg::OnBnClickedSendBtn()
 		delete[]bufOfSend;
 	}
 }
+
+/*每次重新连接上机械臂时,第一次发送指令,机械臂有响应;紧接着第二次发送指令时,机械臂无响应*/
+
+void CCtrlURobotDlg::OnBnClickedPoweronBtn()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CMDofUR5script mycmd;
+    unsigned int iLen = 0;
+	char*cmd = mycmd.CMDPowerOn(iLen);
+	m_digClient.Send(cmd, iLen);
+	delete[]cmd;
+}
+
+void CCtrlURobotDlg::OnBnClickedPoweroffBtn()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CMDofUR5script mycmd;
+	unsigned int iLen = 0;
+	char*cmd = mycmd.CMDPowerOff(iLen);
+	m_digClient.Send(cmd, iLen);
+	delete[]cmd;
+}
+

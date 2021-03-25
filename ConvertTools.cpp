@@ -9,7 +9,7 @@ void ConvertTools::Reverse(char * resource, int start, int size)
 	char *begin = resource + start;
 	char *end = resource + start + size;// 索引默认从0开始,因此最后一个字节不属于目标字节
 
-	int	offset= size;
+	int	offset = size;
 	
 	for (begin; begin < end; begin++)
 	{
