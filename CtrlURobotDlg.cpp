@@ -17,13 +17,12 @@
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
-#define  FIRST_PACKAGE  1116
-#define  SECON_PACKAGE	1116
+
+//#define  FIRST_PACKAGE  1116
+//#define  SECON_PACKAGE	1116
 #define  PACKAGESIZE	1116
-
 UINT __cdecl MyControllingFunction(LPVOID pParam);
-
-// 定义一个全局代码段
+// 定义一个全局临界区
 CRITICAL_SECTION CriticalSection;
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
@@ -302,7 +301,7 @@ void CCtrlURobotDlg::OnBnClickedButtdisconect()
 
 	if (m_digClient.m_socket!= INVALID_SOCKET)
 	{
-		closesocket(m_digClient.m_socket);						// 断开连接时程序出现过崩溃!!!!
+		closesocket(m_digClient.m_socket);						
 	}
 	
 	CWnd *cEditIp = GetDlgItem(IDC_EDITIPADDR);
@@ -333,104 +332,51 @@ void CCtrlURobotDlg::OnClose()
 UINT __cdecl MyControllingFunction(LPVOID pParam)
 {
 	CCtrlURobotDlg * pCtrlDlg = (CCtrlURobotDlg *)pParam;
-	// 在堆上开辟一块最终缓冲区
 
-	char *firstRecvBuf = new char[FIRST_PACKAGE];
-	char *seconRecvBuf = new char[SECON_PACKAGE];
 	unsigned char *strRecvBuf = new unsigned char[PACKAGESIZE];
 	char* strRecvTemp = new char[PACKAGESIZE];
 	memset(strRecvBuf, '\0', PACKAGESIZE);
 	memset(strRecvTemp, '\0', PACKAGESIZE);
 
 	CEdit * pEditRecv = (CEdit *)pCtrlDlg->GetDlgItem(IDC_EDITRECV);
-	CString lastDisp = NULL;
-	unsigned short a = 1;
-	
-	CString recvTemp = NULL;
-	
-	/**/
-	BOOL bsockFlag = FALSE;
-	BOOL bconSucc = FALSE;
+
 	EnterCriticalSection(&CriticalSection);
-	bsockFlag = pCtrlDlg->m_digClient.m_flag;
-	bconSucc = pCtrlDlg->m_digClient.m_conSucc;
+	BOOL bsockFlag = pCtrlDlg->m_digClient.m_flag;
+	BOOL bconSucc = pCtrlDlg->m_digClient.m_conSucc;
 	LeaveCriticalSection(&CriticalSection);
-	/**/
 	
 	while (bsockFlag && bconSucc)
 	{
-		if (a == 1)
-		{
-			// 读取1105包	然后丢弃
-			pCtrlDlg->m_digClient.Recv(firstRecvBuf, FIRST_PACKAGE);
-			a++;
-			delete[]firstRecvBuf;
-		}
-		else if (a == 2)
-		{
-			// 读取1395包	然后丢弃
-			pCtrlDlg->m_digClient.Recv(seconRecvBuf, SECON_PACKAGE);
-			a++;
-			delete[]seconRecvBuf;
-		}
-		else if (a >= 3)
-		{
-			int numOfReceive = 0;
-			numOfReceive = pCtrlDlg->m_digClient.Recv(strRecvTemp, PACKAGESIZE);
-			memcpy(strRecvBuf, strRecvTemp, PACKAGESIZE);						// 拷贝到strRecv中的数据量是我可以指定的
-			memset(strRecvTemp, '\0', PACKAGESIZE);								// 这里犯过错误,memset越界了,导致程序崩溃
+		int numOfReceive = pCtrlDlg->m_digClient.Recv(strRecvTemp, PACKAGESIZE);
+		memcpy(strRecvBuf, strRecvTemp, PACKAGESIZE);						
+		memset(strRecvTemp, '\0', PACKAGESIZE);								
+		
+		// ASCII码流数据的显示函数
+		// 另外:因为获取数据时会大小端反转,所以如果希望显示最原始的数据流
+		// 那么可以显示一个备份,或者先显示再获取状态信息,或者不显示
+		DispASCIIToEdit(pEditRecv, strRecvBuf, numOfReceive);
 
-			/******************************************************************************/
-			/*如何获取机械臂的状态数据????如下是示例代码和使用步骤代码行数383-->396*/
-			/*
-			 * 0.显示ASCII码数据应修改成显示机械臂的状态信息(使用方法或步骤如下:)
-			 * 1.创建RobotState类
-			 * 2.使用RobotState类中的RS_UpDateData()方法更新数据
-			 * 3.调用RobotState类的方法即可获取相应的状态信息信息
-			 */
+		/*
+		 * 0.显示ASCII码数据应修改成显示机械臂的状态信息(使用步骤如下大括号内所示:)
+		 * 1.创建RobotState类
+		 * 2.使用RobotState类中的RS_UpDateData()方法更新数据
+		 * 3.调用RobotState类的方法即可获取相应的状态信息信息
+		 */
+		{
 			RobotState nowState;
 			nowState.RS_UpDateData((char *)strRecvBuf);
 			int size = nowState.m_iPackageSize;									// 获取到当前数据包的大小
 			double time = nowState.RS_GetTime(TRUE);							// 获取时间单位s,自打开UR5那一刻开始算起
 			st_q_actual_pos st_J_A_pos = nowState.RS_GetJointActualPos(TRUE);	// 获取到当前关节的实际坐标
 			double a = nowState.RS_GetProgState(TRUE);
-			/*****************************************************************************/
-
-			CString recvText = NULL;
-			for (int i = 0; i < numOfReceive; i++)
-			{
-				recvTemp.Empty();
-				recvTemp.Format(_T("%02X\t"), strRecvBuf[i]);
-				recvText.Append(recvTemp);
-				if ((i + 1) % 11 == 0)
-				{
-					recvText += "\r\n";
-				}
-			}
-			recvText += "\r\n";
-
-			CString strDisp = NULL;
-			strDisp += lastDisp;
-			strDisp += recvText;
-			
-			pEditRecv->SetWindowTextW(strDisp);
-
-			int nLength = pEditRecv->GetWindowTextLengthW();// 将光标聚焦于末尾
-			pEditRecv->SetSel(nLength, nLength, FALSE);
-			pEditRecv->SetFocus();
-
-			lastDisp = recvText;
 		}
-
 		EnterCriticalSection(&CriticalSection);
 		bsockFlag = pCtrlDlg->m_digClient.m_flag;
 		bconSucc = pCtrlDlg->m_digClient.m_conSucc;
 		LeaveCriticalSection(&CriticalSection);
 	}
-
 	delete[]strRecvBuf;
 	delete[]strRecvTemp;
-
 	return 0;
 }
 
@@ -455,51 +401,19 @@ void CCtrlURobotDlg::OnBnClickedSendBtn()
 	// TODO: 在此添加控件通知处理程序代码
 	CEdit * pEditSend = (CEdit *)GetDlgItem(IDC_EDITSEND);
 	ASSERT(pEditSend);
-	CString strSend = NULL;
-	// 获取到发送框的宽字符型字符串
-	pEditSend->GetWindowTextW(strSend);				
-	// 接上换行符
-	strSend += "\r\n";
-	if (strSend.IsEmpty())
-	{
-		CString tipMsg;
-		tipMsg.Format(_T("请不要发送空白数据...."));
-		AfxMessageBox(tipMsg);
-	}
+	/*调用GetStringFromEdit函数获取指定编辑窗口的命令并转化为C-风格的字符串输出*/
+	int iLen = 0;
+	char * bufOfSend = GetStringFromEdit(pEditSend, iLen);
+
+	CString tipMsg = NULL;
+	if (iLen == m_digClient.Send(bufOfSend, iLen))
+		tipMsg.Format(_T("发送成功..."));
 	else
-	{
-		// GetLength()不包括null结束符,因此其返回值为宽字符的数量
-		int iLen = strSend.GetLength();	
-		// ASCII字符需要null结束符
-		iLen++;
-		// 为ASCII字符申请空间以存储
-		char *bufOfSend= new char[iLen];
-
-		// 宽字符转换为窄字符
-		WideCharToMultiByte(CP_OEMCP,	//	代码页
-							0,			//	默认0
-							strSend,	//	待转换的UniCode字符串
-							-1,			//	处理整个字符串,包括null终止字符
-							bufOfSend,	//	转换后的字符
-							iLen,		//	转换后的字符大小	
-							NULL,		//	默认
-							NULL);		//	默认
-
-		CString tipMsg = NULL;
-		if (iLen == m_digClient.Send(bufOfSend, iLen))
-		{
-			tipMsg.Format(_T("发送成功..."));
-		}
-		else
-		{
-			tipMsg.Format(_T("发送失败..."));
-		}
-
-		CStatic * pStaticState = (CStatic *)GetDlgItem(IDC_STATIC_SEND_STATE);
-		pStaticState->SetWindowText(tipMsg);
-
-		delete[]bufOfSend;
-	}
+		tipMsg.Format(_T("发送失败..."));
+	
+	CStatic * pStaticState = (CStatic *)GetDlgItem(IDC_STATIC_SEND_STATE);
+	pStaticState->SetWindowText(tipMsg);
+	delete[]bufOfSend;
 }
 
 /*每次重新连接上机械臂时,第一次发送指令,机械臂有响应;紧接着第二次发送指令时,机械臂无响应*/

@@ -1,5 +1,6 @@
 #include "Common.h"
 #include "pch.h"
+#define LINELENGTH 11
 BOOL WinSockInit()
 {
 	// 一步打开网络库并校验版本
@@ -48,3 +49,54 @@ BOOL WinSockInit()
 
 	return TRUE;
 }
+
+/*
+ *	1.pEdit表示需要显示的编辑框的指针
+ *	2.buf表示需要显示的数据(字符数组)的地址
+ *	3.howmany表示需要显示的字节数,一般是接收到多少,就显示多少数据
+ */
+void DispASCIIToEdit(CEdit *pEdit,unsigned char* buf, int howmany)
+{
+	static CString lastDisp = NULL;
+	CString recvText = NULL;
+
+	CString recvTemp = NULL;
+	for (int i = 0; i < howmany; i++)
+	{
+		recvTemp.Empty();
+		recvTemp.Format(_T("%02X\t"), buf[i]);
+		recvText.Append(recvTemp);
+		if ((i + 1) % LINELENGTH == 0)		// linelength显示11个字节的数据
+		{
+			recvText += "\r\n";
+		}
+	}
+	recvText += "\r\n";						// 整个数据包的结尾加上换行符
+
+	CString strDisp = NULL;
+	strDisp += lastDisp;					// 加上上次的数据
+	strDisp += recvText;					// 加上本次的数据
+	pEdit->SetWindowTextW(strDisp);			// 显示到编辑框
+	
+	// 将光标聚焦于末尾
+	int nLength = pEdit->GetWindowTextLengthW();
+	pEdit->SetSel(nLength, nLength, FALSE);
+	pEdit->SetFocus();
+
+	lastDisp = recvText;
+}
+
+/*将Unicode字符转化为ASCII码格式的C风格字符串*/
+char * GetStringFromEdit(CEdit * pEdit, int &iLen)
+ {
+	 CString strSend = NULL;
+	 pEdit->GetWindowTextW(strSend);
+	 strSend += "\r\n";
+
+	 iLen = strSend.GetLength();
+	 iLen++;
+	 char*bufOfSend = new char[iLen];
+	 WideCharToMultiByte(CP_OEMCP, 0, strSend, -1, bufOfSend, iLen, NULL, NULL);
+
+	 return bufOfSend;
+ }
