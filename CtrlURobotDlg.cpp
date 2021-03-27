@@ -18,11 +18,9 @@
 #define new DEBUG_NEW
 #endif
 
-//#define  FIRST_PACKAGE  1116
-//#define  SECON_PACKAGE	1116
 #define  PACKAGESIZE	1116
 UINT __cdecl MyControllingFunction(LPVOID pParam);
-// 定义一个全局临界区
+// 定义一个全局临界区,用于同步线程
 CRITICAL_SECTION CriticalSection;
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
@@ -437,4 +435,3 @@ void CCtrlURobotDlg::OnBnClickedPoweroffBtn()
 	m_digClient.Send(cmd, iLen);
 	delete[]cmd;
 }
-
